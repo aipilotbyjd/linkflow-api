@@ -8,6 +8,7 @@ use App\Http\Resources\Api\V1\WorkspaceMemberResource;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class WorkspaceMemberController extends Controller
@@ -43,5 +44,23 @@ class WorkspaceMemberController extends Controller
         $workspace->members()->detach($user->id);
 
         return response()->json(['message' => 'Member removed successfully.']);
+    }
+
+    public function leave(Request $request, Workspace $workspace): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if ($workspace->owner_id === $user->id) {
+            abort(403, 'Workspace owner cannot leave. Transfer ownership first or delete the workspace.');
+        }
+
+        if (! $workspace->members()->where('user_id', $user->id)->exists()) {
+            abort(404, 'You are not a member of this workspace.');
+        }
+
+        $workspace->members()->detach($user->id);
+
+        return response()->json(['message' => 'You have left the workspace.']);
     }
 }

@@ -5,18 +5,27 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Workspace\StoreInvitationRequest;
 use App\Http\Resources\Api\V1\InvitationResource;
+use App\Http\Resources\Api\V1\WorkspaceResource;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Notifications\WorkspaceInvitationNotification;
+use App\Services\WorkspacePermissionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Notification;
 
 class InvitationController extends Controller
 {
-    public function index(Workspace $workspace): AnonymousResourceCollection
+    public function __construct(
+        private WorkspacePermissionService $permissionService
+    ) {}
+
+    public function index(Request $request, Workspace $workspace): AnonymousResourceCollection
     {
+        $this->permissionService->authorize($request->user(), $workspace, 'member.view');
+
         $invitations = $workspace->invitations()
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())
@@ -28,6 +37,8 @@ class InvitationController extends Controller
 
     public function store(StoreInvitationRequest $request, Workspace $workspace): JsonResponse
     {
+        $this->permissionService->authorize($request->user(), $workspace, 'member.invite');
+
         $email = $request->validated('email');
 
         $existingMember = $workspace->members()->where('email', $email)->exists();
@@ -57,12 +68,14 @@ class InvitationController extends Controller
 
         return response()->json([
             'message' => 'Invitation sent successfully.',
-            'data' => new InvitationResource($invitation->load('inviter')),
+            'invitation' => new InvitationResource($invitation->load('inviter')),
         ], 201);
     }
 
-    public function destroy(Workspace $workspace, Invitation $invitation): JsonResponse
+    public function destroy(Request $request, Workspace $workspace, Invitation $invitation): JsonResponse
     {
+        $this->permissionService->authorize($request->user(), $workspace, 'member.invite');
+
         if ($invitation->workspace_id !== $workspace->id) {
             abort(404);
         }
@@ -96,11 +109,15 @@ class InvitationController extends Controller
 
         $invitation->workspace->members()->attach($user->id, [
             'role' => $invitation->role,
+            'joined_at' => now(),
         ]);
 
         $invitation->update(['accepted_at' => now()]);
 
-        return response()->json(['message' => 'Invitation accepted successfully.']);
+        return response()->json([
+            'message' => 'Invitation accepted successfully.',
+            'workspace' => new WorkspaceResource($invitation->workspace),
+        ]);
     }
 
     public function decline(string $token): JsonResponse

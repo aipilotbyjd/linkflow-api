@@ -7,21 +7,30 @@ use App\Http\Requests\Api\V1\Workspace\UpdateMemberRequest;
 use App\Http\Resources\Api\V1\WorkspaceMemberResource;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\WorkspacePermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class WorkspaceMemberController extends Controller
 {
-    public function index(Workspace $workspace): AnonymousResourceCollection
+    public function __construct(
+        private WorkspacePermissionService $permissionService
+    ) {}
+
+    public function index(Request $request, Workspace $workspace): AnonymousResourceCollection
     {
+        $this->permissionService->authorize($request->user(), $workspace, 'member.view');
+
         $members = $workspace->members()->get();
 
         return WorkspaceMemberResource::collection($members);
     }
 
-    public function update(UpdateMemberRequest $request, Workspace $workspace, User $user): WorkspaceMemberResource
+    public function update(UpdateMemberRequest $request, Workspace $workspace, User $user): JsonResponse
     {
+        $this->permissionService->authorize($request->user(), $workspace, 'member.update');
+
         if ($workspace->owner_id === $user->id) {
             abort(403, 'Cannot change the role of the workspace owner.');
         }
@@ -30,13 +39,15 @@ class WorkspaceMemberController extends Controller
             'role' => $request->validated('role'),
         ]);
 
-        $user->load(['workspaces' => fn ($query) => $query->where('workspaces.id', $workspace->id)]);
-
-        return new WorkspaceMemberResource($user);
+        return response()->json([
+            'message' => 'Member role updated successfully.',
+        ]);
     }
 
-    public function destroy(Workspace $workspace, User $user): JsonResponse
+    public function destroy(Request $request, Workspace $workspace, User $user): JsonResponse
     {
+        $this->permissionService->authorize($request->user(), $workspace, 'member.remove');
+
         if ($workspace->owner_id === $user->id) {
             abort(403, 'Cannot remove the workspace owner.');
         }
@@ -51,12 +62,10 @@ class WorkspaceMemberController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        $this->permissionService->authorizeMembership($user, $workspace);
+
         if ($workspace->owner_id === $user->id) {
             abort(403, 'Workspace owner cannot leave. Transfer ownership first or delete the workspace.');
-        }
-
-        if (! $workspace->members()->where('user_id', $user->id)->exists()) {
-            abort(404, 'You are not a member of this workspace.');
         }
 
         $workspace->members()->detach($user->id);

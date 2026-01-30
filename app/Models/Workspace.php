@@ -125,6 +125,14 @@ class Workspace extends Model
     }
 
     /**
+     * @return HasMany<ActivityLog, $this>
+     */
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
+
+    /**
      * @return HasOneThrough<Plan, Subscription, $this>
      */
     public function plan(): HasOneThrough

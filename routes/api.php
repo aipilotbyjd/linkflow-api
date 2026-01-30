@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\ActivityLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CredentialController;
 use App\Http\Controllers\Api\V1\CredentialTypeController;
@@ -141,6 +142,9 @@ Route::prefix('v1')->as('v1.')->group(function () {
 
             // Tags
             Route::apiResource('tags', TagController::class)->except(['show']);
+
+            // Activity Logs
+            Route::get('activity', [ActivityLogController::class, 'index'])->name('activity.index');
         });
 
         // Nodes (Global - not workspace-scoped)

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\CredentialController;
 use App\Http\Controllers\Api\V1\CredentialTypeController;
 use App\Http\Controllers\Api\V1\ExecutionController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\JobCallbackController;
 use App\Http\Controllers\Api\V1\NodeController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
@@ -172,4 +173,15 @@ Route::prefix('v1')->as('v1.')->group(function () {
 Route::prefix('webhooks')->as('webhooks.')->group(function () {
     Route::any('{uuid}', [WebhookReceiverController::class, 'handle'])->name('receive');
     Route::any('{uuid}/{path}', [WebhookReceiverController::class, 'handle'])->name('receive.path');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Job Callback Routes (Go Engine)
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('v1/jobs')->as('v1.jobs.')->group(function () {
+    Route::post('callback', [JobCallbackController::class, 'handle'])->name('callback');
+    Route::post('progress', [JobCallbackController::class, 'progress'])->name('progress');
 });

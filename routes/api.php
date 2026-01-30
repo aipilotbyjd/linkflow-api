@@ -1,12 +1,21 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CredentialController;
+use App\Http\Controllers\Api\V1\CredentialTypeController;
+use App\Http\Controllers\Api\V1\ExecutionController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\NodeController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\TagController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\VariableController;
+use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Controllers\Api\V1\WorkflowController;
 use App\Http\Controllers\Api\V1\WorkspaceController;
 use App\Http\Controllers\Api\V1\WorkspaceMemberController;
+use App\Http\Controllers\Api\WebhookReceiverController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->as('v1.')->group(function () {
@@ -100,6 +109,63 @@ Route::prefix('v1')->as('v1.')->group(function () {
                 Route::post('/', [SubscriptionController::class, 'store'])->name('store');
                 Route::delete('/', [SubscriptionController::class, 'destroy'])->name('destroy');
             });
+
+            // Workflows
+            Route::apiResource('workflows', WorkflowController::class);
+            Route::post('workflows/{workflow}/activate', [WorkflowController::class, 'activate'])->name('workflows.activate');
+            Route::post('workflows/{workflow}/deactivate', [WorkflowController::class, 'deactivate'])->name('workflows.deactivate');
+            Route::post('workflows/{workflow}/duplicate', [WorkflowController::class, 'duplicate'])->name('workflows.duplicate');
+
+            // Credentials
+            Route::apiResource('credentials', CredentialController::class);
+            Route::post('credentials/{credential}/test', [CredentialController::class, 'test'])->name('credentials.test');
+
+            // Executions
+            Route::get('executions/stats', [ExecutionController::class, 'stats'])->name('executions.stats');
+            Route::apiResource('executions', ExecutionController::class)->only(['index', 'show', 'destroy']);
+            Route::get('executions/{execution}/nodes', [ExecutionController::class, 'nodes'])->name('executions.nodes');
+            Route::get('executions/{execution}/logs', [ExecutionController::class, 'logs'])->name('executions.logs');
+            Route::post('executions/{execution}/retry', [ExecutionController::class, 'retry'])->name('executions.retry');
+            Route::post('executions/{execution}/cancel', [ExecutionController::class, 'cancel'])->name('executions.cancel');
+            Route::get('workflows/{workflow}/executions', [ExecutionController::class, 'workflowExecutions'])->name('workflows.executions');
+
+            // Webhooks
+            Route::apiResource('webhooks', WebhookController::class);
+            Route::post('webhooks/{webhook}/regenerate-uuid', [WebhookController::class, 'regenerateUuid'])->name('webhooks.regenerate-uuid');
+            Route::post('webhooks/{webhook}/activate', [WebhookController::class, 'activate'])->name('webhooks.activate');
+            Route::post('webhooks/{webhook}/deactivate', [WebhookController::class, 'deactivate'])->name('webhooks.deactivate');
+            Route::get('workflows/{workflow}/webhook', [WebhookController::class, 'forWorkflow'])->name('workflows.webhook');
+
+            // Variables
+            Route::apiResource('variables', VariableController::class);
+
+            // Tags
+            Route::apiResource('tags', TagController::class)->except(['show']);
+        });
+
+        // Nodes (Global - not workspace-scoped)
+        Route::prefix('nodes')->as('nodes.')->group(function () {
+            Route::get('/', [NodeController::class, 'index'])->name('index');
+            Route::get('categories', [NodeController::class, 'categories'])->name('categories');
+            Route::get('search', [NodeController::class, 'search'])->name('search');
+            Route::get('{type}', [NodeController::class, 'show'])->name('show');
+        });
+
+        // Credential Types (Global)
+        Route::prefix('credential-types')->as('credential-types.')->group(function () {
+            Route::get('/', [CredentialTypeController::class, 'index'])->name('index');
+            Route::get('{type}', [CredentialTypeController::class, 'show'])->name('show');
         });
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Public Webhook Receiver Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('webhooks')->as('webhooks.')->group(function () {
+    Route::any('{uuid}', [WebhookReceiverController::class, 'handle'])->name('receive');
+    Route::any('{uuid}/{path}', [WebhookReceiverController::class, 'handle'])->name('receive.path');
 });

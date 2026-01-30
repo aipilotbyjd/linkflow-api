@@ -85,6 +85,46 @@ class Workspace extends Model
     }
 
     /**
+     * @return HasMany<Workflow, $this>
+     */
+    public function workflows(): HasMany
+    {
+        return $this->hasMany(Workflow::class);
+    }
+
+    /**
+     * @return HasMany<Credential, $this>
+     */
+    public function credentials(): HasMany
+    {
+        return $this->hasMany(Credential::class);
+    }
+
+    /**
+     * @return HasMany<Execution, $this>
+     */
+    public function executions(): HasMany
+    {
+        return $this->hasMany(Execution::class);
+    }
+
+    /**
+     * @return HasMany<Variable, $this>
+     */
+    public function variables(): HasMany
+    {
+        return $this->hasMany(Variable::class);
+    }
+
+    /**
+     * @return HasMany<Tag, $this>
+     */
+    public function tags(): HasMany
+    {
+        return $this->hasMany(Tag::class);
+    }
+
+    /**
      * @return HasOneThrough<Plan, Subscription, $this>
      */
     public function plan(): HasOneThrough

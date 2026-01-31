@@ -18,6 +18,7 @@ class JobCallbackController extends Controller
     {
         $validated = $request->validate([
             'job_id' => 'required|uuid',
+            'callback_token' => 'required|string|size:64', // Required token
             'execution_id' => 'required|integer',
             'status' => 'required|in:completed,failed',
             'nodes' => 'nullable|array',
@@ -39,6 +40,11 @@ class JobCallbackController extends Controller
 
         if (!$jobStatus) {
             return response()->json(['error' => 'Job not found'], 404);
+        }
+
+        // Validate callback token (timing-safe comparison)
+        if (!hash_equals($jobStatus->callback_token, $validated['callback_token'])) {
+            return response()->json(['error' => 'Invalid callback token'], 401);
         }
 
         // Find execution
@@ -101,6 +107,7 @@ class JobCallbackController extends Controller
     {
         $validated = $request->validate([
             'job_id' => 'required|uuid',
+            'callback_token' => 'required|string|size:64',
             'progress' => 'required|integer|min:0|max:100',
             'current_node' => 'nullable|string',
         ]);
@@ -109,6 +116,11 @@ class JobCallbackController extends Controller
 
         if (!$jobStatus) {
             return response()->json(['error' => 'Job not found'], 404);
+        }
+
+        // Validate callback token
+        if (!hash_equals($jobStatus->callback_token, $validated['callback_token'])) {
+            return response()->json(['error' => 'Invalid callback token'], 401);
         }
 
         $jobStatus->updateProgress($validated['progress']);

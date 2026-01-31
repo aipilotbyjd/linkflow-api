@@ -20,6 +20,7 @@ class JobStatusFactory extends Factory
             'job_id' => Str::uuid()->toString(),
             'execution_id' => Execution::factory(),
             'partition' => $this->faker->numberBetween(0, 15),
+            'callback_token' => bin2hex(random_bytes(32)),
             'status' => 'pending',
             'progress' => 0,
         ];

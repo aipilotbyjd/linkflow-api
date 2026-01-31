@@ -16,6 +16,7 @@ return new class extends Migration
             $table->uuid('job_id')->unique();
             $table->foreignId('execution_id')->nullable()->constrained()->nullOnDelete();
             $table->unsignedTinyInteger('partition')->default(0);
+            $table->string('callback_token', 64)->unique(); // For secure Go→Laravel auth
 
             // Status tracking
             $table->enum('status', ['pending', 'processing', 'completed', 'failed'])->default('pending');

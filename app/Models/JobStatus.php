@@ -15,12 +15,17 @@ class JobStatus extends Model
         'job_id',
         'execution_id',
         'partition',
+        'callback_token',
         'status',
         'progress',
         'result',
         'error',
         'started_at',
         'completed_at',
+    ];
+
+    protected $hidden = [
+        'callback_token', // Never expose token in API responses
     ];
 
     /**

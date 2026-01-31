@@ -59,16 +59,20 @@ class ExecuteWorkflowJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(): void
     {
-        // Create job status record
+        // Generate unique callback token (64-char hex)
+        $callbackToken = bin2hex(random_bytes(32));
+
+        // Create job status record with token
         $jobStatus = JobStatus::create([
             'job_id' => $this->jobId,
             'execution_id' => $this->execution->id,
             'partition' => $this->partition,
+            'callback_token' => $callbackToken,
             'status' => 'pending',
         ]);
 
-        // Prepare message for Go engine
-        $message = $this->buildMessage();
+        // Prepare message for Go engine (includes token for callbacks)
+        $message = $this->buildMessage($callbackToken);
 
         // Publish to Redis Stream (partitioned)
         $streamKey = "linkflow:jobs:partition:{$this->partition}";
@@ -89,10 +93,11 @@ class ExecuteWorkflowJob implements ShouldQueue, ShouldBeUnique
      *
      * @return array<string, mixed>
      */
-    protected function buildMessage(): array
+    protected function buildMessage(string $callbackToken): array
     {
         return [
             'job_id' => $this->jobId,
+            'callback_token' => $callbackToken, // Go must include this in callbacks
             'execution_id' => $this->execution->id,
             'workflow_id' => $this->workflow->id,
             'workspace_id' => $this->workflow->workspace_id,
@@ -107,6 +112,7 @@ class ExecuteWorkflowJob implements ShouldQueue, ShouldBeUnique
             'credentials' => $this->getDecryptedCredentials(),
             'variables' => $this->getVariables(),
             'callback_url' => config('app.url') . '/api/v1/jobs/callback',
+            'progress_url' => config('app.url') . '/api/v1/jobs/progress',
             'created_at' => now()->toIso8601String(),
         ];
     }

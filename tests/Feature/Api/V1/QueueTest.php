@@ -131,6 +131,7 @@ describe('JobCallbackController', function () {
 
         $response = $this->postJson('/api/v1/jobs/callback', [
             'job_id' => $jobStatus->job_id,
+            'callback_token' => $jobStatus->callback_token, // Required token
             'execution_id' => $execution->id,
             'status' => 'completed',
             'nodes' => [
@@ -142,6 +143,27 @@ describe('JobCallbackController', function () {
         $response->assertSuccessful();
         expect($execution->fresh()->status->value)->toBe('completed');
         expect($jobStatus->fresh()->status)->toBe('completed');
+    });
+
+    it('rejects callback with invalid token', function () {
+        $execution = Execution::factory()->create([
+            'workspace_id' => $this->workspace->id,
+            'status' => 'running',
+        ]);
+
+        $jobStatus = JobStatus::factory()->processing()->create([
+            'execution_id' => $execution->id,
+        ]);
+
+        $response = $this->postJson('/api/v1/jobs/callback', [
+            'job_id' => $jobStatus->job_id,
+            'callback_token' => str_repeat('x', 64), // Invalid token
+            'execution_id' => $execution->id,
+            'status' => 'completed',
+        ]);
+
+        $response->assertStatus(401);
+        expect($response->json('error'))->toBe('Invalid callback token');
     });
 
     it('handles failed callback', function () {
@@ -156,6 +178,7 @@ describe('JobCallbackController', function () {
 
         $response = $this->postJson('/api/v1/jobs/callback', [
             'job_id' => $jobStatus->job_id,
+            'callback_token' => $jobStatus->callback_token,
             'execution_id' => $execution->id,
             'status' => 'failed',
             'error' => ['message' => 'Node execution failed'],
@@ -171,10 +194,23 @@ describe('JobCallbackController', function () {
 
         $response = $this->postJson('/api/v1/jobs/progress', [
             'job_id' => $jobStatus->job_id,
+            'callback_token' => $jobStatus->callback_token,
             'progress' => 75,
         ]);
 
         $response->assertSuccessful();
         expect($jobStatus->fresh()->progress)->toBe(75);
+    });
+
+    it('rejects progress update with invalid token', function () {
+        $jobStatus = JobStatus::factory()->processing()->create();
+
+        $response = $this->postJson('/api/v1/jobs/progress', [
+            'job_id' => $jobStatus->job_id,
+            'callback_token' => str_repeat('y', 64),
+            'progress' => 50,
+        ]);
+
+        $response->assertStatus(401);
     });
 });

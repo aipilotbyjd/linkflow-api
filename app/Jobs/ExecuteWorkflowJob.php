@@ -119,12 +119,27 @@ class ExecuteWorkflowJob implements ShouldQueue, ShouldBeUnique
 
     /**
      * Get decrypted credentials used by this workflow.
+     * Only decrypts credentials that are actually referenced by nodes.
      *
      * @return array<string, mixed>
      */
     protected function getDecryptedCredentials(): array
     {
+        // Extract credential IDs from nodes to only decrypt what's needed
+        $usedCredentialIds = collect($this->workflow->nodes)
+            ->pluck('data.credentialId')
+            ->merge(collect($this->workflow->nodes)->pluck('data.credential_id'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($usedCredentialIds)) {
+            return [];
+        }
+
         return $this->workflow->credentials()
+            ->whereIn('credentials.id', $usedCredentialIds)
             ->get()
             ->mapWithKeys(fn ($credential) => [
                 $credential->id => [

@@ -178,21 +178,40 @@ class ExecutionController extends Controller
             $baseQuery->where('workflow_id', $request->input('workflow_id'));
         }
 
-        $stats = [
-            'total' => (clone $baseQuery)->count(),
-            'completed' => (clone $baseQuery)->where('status', ExecutionStatus::Completed)->count(),
-            'failed' => (clone $baseQuery)->where('status', ExecutionStatus::Failed)->count(),
-            'running' => (clone $baseQuery)->where('status', ExecutionStatus::Running)->count(),
-            'pending' => (clone $baseQuery)->where('status', ExecutionStatus::Pending)->count(),
-            'cancelled' => (clone $baseQuery)->where('status', ExecutionStatus::Cancelled)->count(),
-            'avg_duration_ms' => (clone $baseQuery)->whereNotNull('duration_ms')->avg('duration_ms'),
+        // Use single aggregation query for better performance (1 query instead of 7)
+        $stats = $baseQuery
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as failed,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as running,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as cancelled,
+                AVG(CASE WHEN duration_ms IS NOT NULL THEN duration_ms END) as avg_duration_ms
+            ', [
+                ExecutionStatus::Completed->value,
+                ExecutionStatus::Failed->value,
+                ExecutionStatus::Running->value,
+                ExecutionStatus::Pending->value,
+                ExecutionStatus::Cancelled->value,
+            ])
+            ->first();
+
+        $result = [
+            'total' => (int) $stats->total,
+            'completed' => (int) $stats->completed,
+            'failed' => (int) $stats->failed,
+            'running' => (int) $stats->running,
+            'pending' => (int) $stats->pending,
+            'cancelled' => (int) $stats->cancelled,
+            'avg_duration_ms' => $stats->avg_duration_ms ? round($stats->avg_duration_ms, 2) : null,
         ];
 
-        $stats['success_rate'] = $stats['total'] > 0
-            ? round(($stats['completed'] / $stats['total']) * 100, 2)
+        $result['success_rate'] = $result['total'] > 0
+            ? round(($result['completed'] / $result['total']) * 100, 2)
             : 0;
 
-        return response()->json(['stats' => $stats]);
+        return response()->json(['stats' => $result]);
     }
 
     private function ensureExecutionBelongsToWorkspace(Execution $execution, Workspace $workspace): void
